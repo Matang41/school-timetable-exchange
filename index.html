@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>พี่คร้าบผมขอแลกคาบหน่อย (Core V14 - Clean Architecture)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; display: flex; flex-direction: column; min-height: 100vh; }
+        main { flex-grow: 1; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tab-active { border-bottom: 4px solid #2563eb; color: #1e3a8a; font-weight: bold; background-color: #eff6ff; }
+        .pulse-border { animation: pulseBorder 2s infinite; }
+        .pulse-border-yellow { animation: pulseBorderYellow 2s infinite; }
+        @keyframes pulseBorder {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); border-color: #3b82f6; }
+            70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); border-color: #93c5fd; }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); border-color: #3b82f6; }
+        }
+        @keyframes pulseBorderYellow {
+            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); border-color: #eab308; }
+            70% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0); border-color: #fde047; }
+            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); border-color: #eab308; }
+        }
+        .dragging { opacity: 0.5; transform: scale(0.95); transition: transform 0.2s ease; }
+        .drag-over { background-color: #dcfce7 !important; border: 2px dashed #22c55e !important; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700 p-4 z-50 relative">
+        <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="bg-blue-100 text-blue-600 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-3xl">🔄</div>
+                <h2 class="text-2xl font-bold text-gray-800">พี่คร้าบผมขอแลกคาบหน่อย</h2>
+                <p class="text-sm text-gray-500 mt-1">โรงเรียนสรรพวิทยาคม</p>
+            </div>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">รหัสประจำตัวครู (3 หลัก)</label>
+                    <input type="text" id="teacherCode" value="613" class="w-full border border-gray-300 px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-bold text-blue-900 bg-gray-50">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">ชื่อ - นามสกุล</label>
+                    <input type="text" id="teacherName" value="นายนนทพัทธ์ วงค์มูล" class="w-full border border-gray-300 px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-bold text-blue-900 bg-gray-50">
+                </div>
+                
+                <div class="pt-4 space-y-3">
+                    <button onclick="login(false)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2">
+                        <span>เข้าสู่ระบบ (ครูผู้สอน)</span>
+                    </button>
+                    <button onclick="login(true)" class="w-full bg-white hover:bg-gray-50 text-red-600 border border-red-200 font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <span class="text-lg">👑</span> <span>เข้าสู่ระบบ (ผู้ดูแลระบบวิชาการ)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden flex flex-col min-h-screen">
+        <nav class="bg-white shadow-sm border-b">
+            <div class="bg-blue-800 text-white p-4">
+                <div class="max-w-[1400px] mx-auto flex justify-between items-center">
+                    <h1 class="text-xl font-bold flex items-center gap-2"><span>🔄</span> พี่คร้าบผมขอแลกคาบหน่อย</h1>
+                    <div class="flex gap-4 items-center">
+                        <span id="userInfoDisplay" class="text-sm bg-blue-900/50 px-3 py-1.5 rounded-full shadow-inner border border-blue-700 font-medium">ผู้ใช้: -</span>
+                        <button onclick="logout()" class="text-sm text-blue-200 hover:text-white font-medium underline transition-colors">ออกจากระบบ</button>
+                    </div>
+                </div>
+            </div>
+            <div class="max-w-[1400px] mx-auto flex px-4 pt-0 border-b relative">
+                <button onclick="switchTab('myTimetableTab')" id="tab-myTimetableTab" class="py-3 px-4 text-gray-600 hover:text-blue-800 tab-active transition-colors rounded-t-lg">ตารางสอน / จัดการข้อมูล</button>
+                <button onclick="switchTab('browseTab')" id="tab-browseTab" class="py-3 px-4 text-gray-600 hover:text-blue-800 relative transition-colors rounded-t-lg">
+                    ค้นหาตารางคณะครู 
+                    <span id="badgeSwapMode" class="hidden absolute top-2 right-0 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">โหมดหาผู้แทน</span>
+                </button>
+                <button onclick="switchTab('studentTab')" id="tab-studentTab" class="py-3 px-4 text-gray-600 hover:text-blue-800 transition-colors rounded-t-lg">
+                    🎓 ตารางเรียนนักเรียน
+                </button>
+            </div>
+        </nav>
+
+        <main class="max-w-[1400px] mx-auto mt-6 p-4 w-full">
+            <!-- View 1: ตารางสอน -->
+            <div id="myTimetableTab" class="view-section">
+                <!-- แผงควบคุม Admin -->
+                <div id="adminPanel" class="hidden bg-gradient-to-r from-red-50 to-orange-50 p-5 rounded-xl shadow-sm border border-red-100 mb-6">
+                    <div class="flex flex-wrap gap-4 items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-bold text-red-800 flex items-center gap-2"><span>👑</span> Admin Dashboard</h2>
+                            <p class="text-sm text-red-600 mt-1">จัดการข้อมูลกลางและรีเซ็ตระบบ</p>
+                        </div>
+                        <div class="flex items-center gap-4 bg-white p-2 rounded-lg shadow-sm border">
+                            <label class="font-bold text-sm text-gray-700 pl-2">จัดการตารางของ:</label>
+                            <select id="adminTeacherSelect" onchange="changeAdminView()" class="border-none focus:ring-0 p-2 rounded text-sm bg-gray-50 font-bold text-blue-700 w-64 outline-none"></select>
+                            <div class="border-l border-gray-200 h-8 mx-2"></div>
+                            <button onclick="clearAllDatabase()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-bold shadow transition-colors">
+                                ล้างฐานข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+                    <h2 class="text-lg font-bold mb-4 text-gray-800 border-b pb-3">📥 นำเข้าข้อมูล (JSON / PDF / TXT)</h2>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <select id="uploadType" class="border border-gray-300 p-2.5 rounded-lg text-sm bg-gray-50 font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="all_students">🎓 1. นำเข้าตารางนักเรียน (แนะนำ! ระบบจะซ่อมตารางครูให้อัตโนมัติ)</option>
+                            <option value="all_teachers">👥 2. นำเข้าตารางคณะครูรวม</option>
+                            <option value="personal">👤 3. นำเข้าตารางส่วนตัว (อัปเดตเฉพาะครูที่เลือก)</option>
+                        </select>
+                        <input type="file" id="fileInput" class="border border-gray-300 p-2 rounded-lg text-sm w-72 bg-gray-50 cursor-pointer" accept=".pdf, .jpg, .png, .txt, .json">
+                        <button onclick="handleFileUpload()" class="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm hover:bg-blue-700 font-bold shadow-md transition-transform transform hover:scale-105">อัปโหลดไฟล์</button>
+                    </div>
+                    <p class="text-xs text-green-700 font-bold mt-3 bg-green-50 p-2 rounded border border-green-200">
+                        💡 ทริควิชาการ: หากตารางครูคลาดเคลื่อน ให้อัปโหลด "ไฟล์ JSON ตารางเรียนนักเรียน" ระบบจะทำการ Reverse-Sync แก้ไขคาบให้ครูทุกคนตรงเป๊ะ 100% ทันที
+                    </p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-3 gap-2">
+                        <h2 class="text-xl font-bold text-gray-800" id="timetableTitle">ตารางสอนของฉัน</h2>
+                        <span class="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full font-bold shadow-sm">
+                            👆 แตะเพื่อจัดการ หรือ ลากแล้ววาง (Drag & Drop) เพื่อเลื่อนคาบ
+                        </span>
+                    </div>
+                    <div class="overflow-x-auto hide-scrollbar">
+                        <table class="w-full text-left border-collapse min-w-[1200px] shadow-sm rounded-lg overflow-hidden">
+                            <thead>
+                                <tr class="bg-gray-100 text-sm text-gray-700">
+                                    <th class="border border-gray-200 p-3 text-center w-24 bg-gray-200">วัน / เวลา</th>
+                                    <script>for(let i=1; i<=10; i++) document.write(`<th class="border border-gray-200 p-3 text-center w-24">คาบ ${i}</th>`);</script>
+                                </tr>
+                            </thead>
+                            <tbody id="timetableBody" class="bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View 2: ค้นหาตารางคณะครู -->
+            <div id="browseTab" class="view-section hidden">
+                <div id="swapTargetBanner" class="hidden mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-5 rounded-r-lg shadow-sm">
+                    <h3 class="font-bold text-blue-800 text-lg flex items-center gap-2"><span>🎯</span> โหมดวิเคราะห์ AI (ค้นหาผู้สอนแทนที่ดีที่สุด)</h3>
+                    <p class="text-sm text-gray-700 mt-2 bg-white p-2 rounded border border-blue-100" id="swapTargetText"></p>
+                </div>
+                <div id="normalBrowseBanner" class="mb-6 bg-gray-50 border-l-4 border-gray-500 p-5 rounded-r-lg shadow-sm">
+                    <h3 class="font-bold text-gray-800 text-lg">ℹ️ โหมดค้นหาตารางทั่วไป</h3>
+                    <p class="text-sm text-gray-600 mt-1">คลิกที่ตารางสอนของฉันก่อน หากต้องการเข้าสู่โหมดวิเคราะห์เพื่อแลกคาบ</p>
+                </div>
+
+                <div class="flex gap-6">
+                    <div class="w-1/4 bg-white p-5 rounded-xl shadow-sm border h-fit">
+                        <h3 class="font-bold text-gray-800 border-b pb-3 mb-4">หมวดหมู่ / กลุ่มสาระ</h3>
+                        <ul class="space-y-2 text-sm" id="departmentList"></ul>
+                    </div>
+                    <div class="w-3/4 bg-white p-6 rounded-xl shadow-sm border min-h-[400px]">
+                        <h3 class="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2" id="browseTitle">กรุณาเลือกหมวดหมู่</h3>
+                        <div id="teacherListArea" class="grid grid-cols-2 gap-5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View 3: ตารางเรียนนักเรียน -->
+            <div id="studentTab" class="view-section hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex justify-between items-center mb-6 border-b pb-3">
+                        <h2 class="text-xl font-bold text-gray-800">🎓 ตารางเรียนนักเรียน (มุมมองผู้เรียน)</h2>
+                        <div class="flex items-center gap-3">
+                            <label class="font-bold text-sm text-gray-600">เลือกระดับชั้น/ห้อง:</label>
+                            <select id="studentRoomSelect" onchange="drawStudentTimetable()" class="border border-gray-300 p-2 rounded-lg bg-gray-50 font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]">
+                                <option value="">-- รอการนำเข้าข้อมูล --</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="studentTableWrapper" class="overflow-x-auto hide-scrollbar">
+                        <table class="w-full text-left border-collapse min-w-[1200px] shadow-sm rounded-lg overflow-hidden">
+                            <thead>
+                                <tr class="bg-indigo-50 text-sm text-indigo-900">
+                                    <th class="border border-indigo-100 p-3 text-center w-24 bg-indigo-100">วัน / เวลา</th>
+                                    <script>for(let i=1; i<=10; i++) document.write(`<th class="border border-indigo-100 p-3 text-center w-24">คาบ ${i}</th>`);</script>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTimetableBody" class="bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal 1: จัดการคาบสอนส่วนตัว -->
+    <div id="actionModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border-t-4 border-blue-600 transform transition-all">
+            <h3 class="text-xl font-bold mb-2 text-gray-800" id="modalTitle">จัดการคาบสอน</h3>
+            <p class="text-sm text-blue-800 bg-blue-50 p-3 rounded-lg border border-blue-100 mb-5 font-medium" id="modalDetail">ระดับชั้น: -</p>
+            
+            <div class="mb-5">
+                <label class="block text-xs font-bold text-gray-600 mb-2">📅 ระบุวันที่ต้องการลา/แลกคาบ (ว/ด/ป):</label>
+                <input type="date" id="absenceDateInput" class="w-full border border-gray-300 p-2.5 rounded-lg text-sm bg-gray-50 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-bold text-gray-800">
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="startSmartMatch()" class="w-full text-left p-3.5 border border-blue-200 rounded-lg hover:bg-blue-600 hover:text-white text-blue-700 font-bold text-sm bg-blue-50 shadow-sm transition-all flex justify-between group">
+                    <span>🎯 ค้นหาคนสอนแทน (AI)</span><span class="transform group-hover:translate-x-1 transition-transform">➡️</span>
+                </button>
+                <button onclick="editSlot()" class="w-full text-left p-3.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors">
+                    ✏️ แก้ไขข้อมูลวิชานี้
+                </button>
+                <button onclick="deleteSlot()" class="w-full text-left p-3.5 border border-red-100 rounded-lg hover:bg-red-50 text-red-600 font-medium text-sm transition-colors" id="btnDeleteSlot">
+                    🗑️ ลบคาบสอนนี้
+                </button>
+            </div>
+            <div class="mt-5 pt-4 border-t text-center">
+                <button onclick="document.getElementById('actionModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800 font-bold text-sm underline px-4 py-2">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 1.5: เพิ่มคาบสอนเอง -->
+    <div id="addSlotModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-xl font-bold mb-5 text-gray-800">➕ เพิ่มคาบสอน</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-1 block">ระดับชั้น/ห้องเรียน</label>
+                    <input type="text" id="addLevel" placeholder="เช่น 4/8 หรือ ม.3 ก.1" class="w-full border p-2.5 rounded-lg text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-1 block">ชื่อวิชา / รหัสวิชา</label>
+                    <input type="text" id="addSubject" placeholder="เช่น ศ31101" class="w-full border p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-1 block">ห้องประจำ (ถ้ามี)</label>
+                    <input type="text" id="addRoom" placeholder="เช่น 512" class="w-full border p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50">
+                </div>
+                <div class="pt-2 flex gap-3">
+                    <button onclick="document.getElementById('addSlotModal').classList.add('hidden')" class="w-1/3 bg-gray-100 text-gray-600 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-200">ยกเลิก</button>
+                    <button onclick="confirmAddSlot()" class="w-2/3 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md">บันทึกคาบสอน</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: หน้าต่างแสดงตารางเทียบคู่ -->
+    <div id="comparisonModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-[95vw] w-full max-h-[95vh] overflow-y-auto shadow-2xl relative">
+            <div class="flex justify-between items-center mb-5 border-b pb-3">
+                <h3 class="text-2xl font-bold text-gray-800" id="comparisonModalTitle">วิเคราะห์การแลกคาบ</h3>
+                <button onclick="document.getElementById('comparisonModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500 text-3xl font-bold transition-colors">&times;</button>
+            </div>
+
+            <div id="smartMatchHeaderBox" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 rounded-xl text-sm mb-5 shadow-sm">
+                <div class="font-bold text-blue-900 mb-2">สถานการณ์ปัจจุบัน:</div>
+                คุณต้องการหาผู้สอนแทนใน <span class="font-bold bg-white text-blue-700 px-2 py-1 rounded shadow-sm border border-blue-200 mx-1" id="compareTargetDetails"></span> 
+                เป้าหมาย: <span class="font-bold text-indigo-700 text-lg ml-1 bg-white px-2 py-0.5 rounded shadow-sm" id="compareTeacherName"></span>
+            </div>
+
+            <div class="flex gap-6 overflow-x-auto hide-scrollbar pb-4" id="tableContainer">
+                <div id="myTableContainer" class="w-1/2 min-w-[600px] border-r border-gray-200 pr-5">
+                    <h4 class="font-bold text-gray-700 mb-3 bg-gray-100 p-2.5 rounded-lg shadow-sm border border-gray-200">📅 ตารางของผู้ขอ (คุณ)</h4>
+                    <table class="w-full text-left border-collapse text-xs rounded-lg overflow-hidden">
+                        <thead><tr class="bg-gray-200"><th class="border border-gray-300 p-2 text-center w-12 text-gray-700">วัน</th><script>for(let i=1;i<=10;i++) document.write(`<th class="border border-gray-300 p-2 text-center w-12 text-gray-700">${i}</th>`);</script></tr></thead>
+                        <tbody id="compareMyTable"></tbody>
+                    </table>
+                </div>
+
+                <div id="targetTableContainer" class="w-1/2 min-w-[600px]">
+                    <h4 class="font-bold text-indigo-800 mb-3 bg-indigo-50 p-2.5 rounded-lg shadow-sm border border-indigo-100">🎯 ตารางของ <span id="compareTargetNameTitle"></span></h4>
+                    <table class="w-full text-left border-collapse text-xs rounded-lg overflow-hidden">
+                        <thead><tr class="bg-indigo-100"><th class="border border-indigo-200 p-2 text-center w-12 text-indigo-900">วัน</th><script>for(let i=1;i<=10;i++) document.write(`<th class="border border-indigo-200 p-2 text-center w-12 text-indigo-900">${i}</th>`);</script></tr></thead>
+                        <tbody id="compareTargetTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="actionMessageContainer" class="hidden mt-6 bg-white border border-gray-200 p-5 rounded-xl shadow-md">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                    <h4 class="font-bold text-xl text-gray-800" id="actionMessageTitle">✅ ผลการประเมิน</h4>
+                </div>
+
+                <!-- Toggle แลกคาบ vs ฝากคาบ -->
+                <div class="flex gap-4 mb-5 border-b border-gray-100 pb-5 bg-gray-50 p-3 rounded-lg">
+                    <label class="cursor-pointer flex items-center gap-2">
+                        <input type="radio" name="actionType" value="swap" checked onchange="toggleActionType()" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <span class="font-bold text-blue-800 text-base">🔄 แลกคาบสอน (ต้องสอนคืน)</span>
+                    </label>
+                    <label class="cursor-pointer flex items-center gap-2 ml-4">
+                        <input type="radio" name="actionType" value="sub" onchange="toggleActionType()" class="w-4 h-4 text-red-600 focus:ring-red-500">
+                        <span class="font-bold text-red-600 text-base">📤 ฝากคาบ (ไม่สอนคืน)</span>
+                    </label>
+                </div>
+                
+                <div id="returnSlotSelectionArea" class="hidden p-4 bg-blue-50/50 rounded-xl border border-blue-200 text-sm mb-5 transition-all">
+                    <p class="font-bold text-blue-800 mb-3 flex items-center gap-2">
+                        <span class="text-xl">📅</span> เลือกคาบที่คุณจะ "ไปสอนคืน" (คำนวณปฏิทินจริง):
+                    </p>
+                    <div id="returnSlotOptionsContainer" class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar"></div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                    <button onclick="openFinalConfirmation()" id="btnProceedSwap" class="w-full sm:w-2/3 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold shadow-md transition-transform transform hover:scale-[1.02] text-lg">
+                        ดำเนินการแลกคาบ ➡️
+                    </button>
+                    <button onclick="copyLineMessage()" class="w-full sm:w-1/3 bg-[#06C755] hover:bg-green-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                        💬 คัดลอกข้อความ LINE
+                    </button>
+                </div>
+                <textarea id="lineMessageText" class="w-full mt-4 p-3 border border-gray-300 rounded-lg text-sm h-20 bg-gray-50 outline-none focus:border-green-500" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: ยืนยันข้อมูลสลับคาบสอน -->
+    <div id="confirmationModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+        <div class="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl">
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-3 text-center">📝 ยืนยันสัญญาสลับคาบสอน</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 space-y-4 text-base">
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                        <span class="text-gray-500 font-medium">ผู้ขอ:</span>
+                        <span id="confMyName" class="font-bold text-gray-800 text-lg"></span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                        <span class="text-gray-500 font-medium">ผู้สอนแทน:</span>
+                        <span id="confTargetName" class="font-bold text-blue-700 text-lg"></span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                        <span class="text-gray-500 font-medium">วันที่ลา/คาบ:</span>
+                        <span id="confDate" class="font-bold text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100"></span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                        <span class="text-gray-500 font-medium">รูปแบบ:</span>
+                        <span id="confSwapType" class="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg"></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-green-50 p-3 rounded-lg border border-green-200" id="confReturnContainer">
+                        <span class="text-green-800 font-bold">สอนคืนวันที่:</span>
+                        <span id="confReturnDate" class="font-bold text-green-700 text-right"></span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button onclick="document.getElementById('confirmationModal').classList.add('hidden')" class="w-1/3 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors">ย้อนกลับ</button>
+                    <button onclick="submitFinalSwap()" class="w-2/3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-transform transform hover:scale-105 flex justify-center items-center gap-2">
+                        ✅ ยืนยันส่งคำขอ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Success -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70]">
+        <div class="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
+            <div class="text-6xl mb-4 animate-bounce mt-4">🎉</div>
+            <h3 class="text-3xl font-bold text-gray-800 mb-2">ทำรายการสำเร็จ!</h3>
+            <p class="text-gray-500 mb-8 font-medium">ระบบได้บันทึกข้อมูลและจำลองการแจ้งเตือนเรียบร้อยแล้ว</p>
+            
+            <div class="bg-gray-50 rounded-xl p-6 border border-gray-200 text-left mb-8 shadow-inner">
+                <h4 class="font-bold text-gray-700 mb-4 flex items-center gap-2 border-b pb-2"><span>📄</span> สรุปข้อมูลเอกสาร</h4>
+                <p class="text-sm text-gray-600 space-y-2">
+                    <b>ผู้ขอ:</b> <span id="pdfMyName" class="text-gray-900 font-medium"></span><br>
+                    <b>ผู้สอนแทน:</b> <span id="pdfTargetName" class="text-blue-700 font-medium"></span><br>
+                    <b>ลาวันที่:</b> <span id="pdfDate" class="text-red-600 font-medium"></span><br>
+                    <b>การสอนคืน:</b> <span id="pdfReturnDate" class="text-green-600 font-medium"></span><br>
+                </p>
+            </div>
+
+            <button onclick="closeAllModals()" class="bg-blue-600 text-white font-bold py-3.5 px-12 rounded-xl shadow-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">กลับสู่หน้าจอหลัก</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
